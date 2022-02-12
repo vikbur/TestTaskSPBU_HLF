@@ -1,5 +1,6 @@
 package vikbur;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.hyperledger.fabric.gateway.*;
@@ -41,6 +42,30 @@ public class Node extends Thread{
     //добавляем новые события
     public static void updateEvents(List<String> newEvents) throws IOException{
 
+        Gateway.Builder builder = getBuilderForContract();
+
+        // Create a gateway connection
+        try (Gateway gateway = builder.connect()) {
+
+            // Obtain a smart contract deployed on the network.
+            Network network = gateway.getNetwork("mychannel");
+            Contract contract = network.getContract("MyContract");
+
+            for (String newEvent: newEvents){
+                if (!events.contains(newEvent)){
+
+                    contract.createTransaction("updateEvent").submit(newEvent);
+                }
+            }
+
+        } catch (ContractException | TimeoutException | InterruptedException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public static Gateway.Builder getBuilderForContract() throws IOException{
+
         // Load an existing wallet holding identities used to access the network.
         Path walletDirectory = Paths.get("wallet");
         Wallet wallet = Wallets.newFileSystemWallet(walletDirectory);
@@ -53,6 +78,21 @@ public class Node extends Thread{
                 .identity(wallet, "user1")
                 .networkConfig(networkConfigFile);
 
+        return builder;
+    }
+    //возвращаем текущие данные лога
+    public static String getLog() throws IOException, ContractException {
+
+//        StringBuilder sb = new StringBuilder();
+//
+//        for (String str: events) {
+//            sb.append(str).append("\n");
+//        }
+//
+//        return sb.toString();
+
+        Gateway.Builder builder = getBuilderForContract();
+
         // Create a gateway connection
         try (Gateway gateway = builder.connect()) {
 
@@ -60,31 +100,12 @@ public class Node extends Thread{
             Network network = gateway.getNetwork("mychannel");
             Contract contract = network.getContract("MyContract");
 
-            for (String newEvent: newEvents){
-                if (!events.contains(newEvent)){
+            byte[] queryAllEvents = contract.evaluateTransaction("queryAllEvents");
 
-                    byte[] updateResult = contract.createTransaction("updateEvent").submit(newEvent);
-                }
-            }
-            // Submit transactions that store state to the ledger.
+            return new String(queryAllEvents, StandardCharsets.UTF_8);
 
-        } catch (ContractException | TimeoutException | InterruptedException e) {
-            e.printStackTrace();
         }
 
-
-    }
-
-    //возвращаем текущие данные лога
-    public static String getLog(){
-
-        StringBuilder sb = new StringBuilder();
-
-        for (String str: events) {
-            sb.append(str).append("\n");
-        }
-
-        return sb.toString();
     }
 
 
